@@ -1,72 +1,68 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
-// 1. SENSOR PINS
-#define TRIG1 13 // Ultrasonic 1
+
+#define TRIG1 13 
 #define ECHO1 12
-#define TRIG2 14 // Ultrasonic 2
+#define TRIG2 14 
 #define ECHO2 27
 
-#define IR_ENTRY 33 // IR Gate Entry
-#define IR_EXIT 32  // IR Gate Exit
+#define IR_ENTRY 33 
+#define IR_EXIT 32  
 
-// 2. LED PINS
-#define GREEN1 18 // Slot 1 Status
+
+#define GREEN1 18 
 #define RED1 19
-#define GREEN2 21 // Slot 2 Status
+#define GREEN2 21 
 #define RED2 22
 
-// 3. WIFI CREDENTIALS - 🔹 CHANGE THESE
+
 const char* ssid = "YourWiFiName";
 const char* password = "YourWiFiPassword";
 
 WebServer server(80);
 
-// 4. GLOBAL VARIABLES
-int vehicleCount = 0;
-const int MAX_SLOTS = 2; // Total physical parking slots
-const int slotDistance = 10; // Max distance (cm) to be considered 'Occupied'
 
-// State variables for robust IR counting (edge detection)
+int vehicleCount = 0;
+const int MAX_SLOTS = 2; 
+const int slotDistance = 10; 
+
+
 bool entryGateBlocked = false;
 bool exitGateBlocked = false;
 
-// --------------------------------------------------------------------------
-// ULTRASONIC FUNCTION
-// --------------------------------------------------------------------------
+
 long readUltrasonic(int trigPin, int echoPin) {
     digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
     digitalWrite(trigPin, HIGH);
     delayMicroseconds(10);
     digitalWrite(trigPin, LOW);
-    long duration = pulseIn(echoPin, HIGH, 30000); // 30ms timeout for better reliability
-    if (duration == 0) return 999; // Return a high value if no echo (out of range/error)
-    return duration * 0.034 / 2; // Convert duration to distance in cm
+    long duration = pulseIn(echoPin, HIGH, 30000); 
+    if (duration == 0) return 999; 
+    return duration * 0.034 / 2; 
 }
 
-// --------------------------------------------------------------------------
-// HTML PAGE GENERATION
-// --------------------------------------------------------------------------
+
 String getHTMLPage() {
     int dist1 = readUltrasonic(TRIG1, ECHO1);
     int dist2 = readUltrasonic(TRIG2, ECHO2);
 
-    // Determine slot status
+   
     bool isSlot1Occupied = (dist1 < slotDistance && dist1 > 0);
     bool isSlot2Occupied = (dist2 < slotDistance && dist2 > 0);
 
     String slot1Status = isSlot1Occupied ? "Occupied 🔴" : "Available 🟢";
     String slot2Status = isSlot2Occupied ? "Occupied 🔴" : "Available 🟢";
     
-    // Calculate available spots based on individual slot sensors
+    
     int slotsAvailable = (isSlot1Occupied ? 0 : 1) + (isSlot2Occupied ? 0 : 1);
     
-    // Determine overall parking status based on slots
+   
     String overallStatus = (slotsAvailable > 0) ? "AVAILABLE" : "FULL";
     String statusColor = (slotsAvailable > 0) ? "green" : "red";
 
-    // Start HTML
+    
     String html = "<!DOCTYPE html><html><head><meta http-equiv='refresh' content='3'/>"
                   "<title>Smart Parking System</title>"
                   "<style>"
@@ -102,25 +98,23 @@ void handleRoot() {
     server.send(200, "text/html", getHTMLPage());
 }
 
-// --------------------------------------------------------------------------
-// SETUP
-// --------------------------------------------------------------------------
+
 void setup() {
     Serial.begin(115200);
 
-    // Initialize Sensor Pins
+   
     pinMode(TRIG1, OUTPUT); pinMode(ECHO1, INPUT);
     pinMode(TRIG2, OUTPUT); pinMode(ECHO2, INPUT);
 
-    // Initialize IR Sensor Pins (Active LOW/Pull-up needed if using simple sensors)
+   
     pinMode(IR_ENTRY, INPUT_PULLUP);
     pinMode(IR_EXIT, INPUT_PULLUP);
 
-    // Initialize LED Pins
+    
     pinMode(GREEN1, OUTPUT); pinMode(RED1, OUTPUT);
     pinMode(GREEN2, OUTPUT); pinMode(RED2, OUTPUT);
 
-    // Start WiFi
+    
     Serial.print("Connecting to WiFi ");
     Serial.println(ssid);
     WiFi.begin(ssid, password);
@@ -134,61 +128,56 @@ void setup() {
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP()); 
 
-    // Start Web Server
+   
     server.on("/", handleRoot);
     server.begin();
 }
 
-// --------------------------------------------------------------------------
-// MAIN LOOP
-// --------------------------------------------------------------------------
+
 void loop() {
-    // 1. Handle Web Server Requests
+   
     server.handleClient();
 
-    // 2. Ultrasonic Sensor (Parking Slot Status & LED Control)
+   
     int dist1 = readUltrasonic(TRIG1, ECHO1);
     int dist2 = readUltrasonic(TRIG2, ECHO2);
 
-    // Slot 1 Logic
+   
     if (dist1 < slotDistance && dist1 > 0) {
-        digitalWrite(RED1, HIGH);   // Slot Occupied
+        digitalWrite(RED1, HIGH);
         digitalWrite(GREEN1, LOW);
     } else {
         digitalWrite(RED1, LOW);
-        digitalWrite(GREEN1, HIGH); // Slot Available
+        digitalWrite(GREEN1, HIGH); 
     }
 
-    // Slot 2 Logic
+    
     if (dist2 < slotDistance && dist2 > 0) {
-        digitalWrite(RED2, HIGH);   // Slot Occupied
+        digitalWrite(RED2, HIGH);   
         digitalWrite(GREEN2, LOW);
     } else {
         digitalWrite(RED2, LOW);
-        digitalWrite(GREEN2, HIGH); // Slot Available
+        digitalWrite(GREEN2, HIGH); 
     }
 
-    // 3. IR Sensor (Vehicle Counting - using edge detection)
-    
-    // IR Entry Gate Logic
+   
     if (digitalRead(IR_ENTRY) == LOW && !entryGateBlocked) {
-        // Vehicle just entered
         vehicleCount++;
-        entryGateBlocked = true; // Set flag to prevent immediate recounting
+        entryGateBlocked = true; 
         Serial.println("Vehicle Entered. Count: " + String(vehicleCount));
     } else if (digitalRead(IR_ENTRY) == HIGH && entryGateBlocked) {
-        // Vehicle cleared the gate
+        
         entryGateBlocked = false;
     }
 
-    // IR Exit Gate Logic
+  
     if (digitalRead(IR_EXIT) == LOW && !exitGateBlocked && vehicleCount > 0) {
-        // Vehicle just exited
+      
         vehicleCount--;
-        exitGateBlocked = true; // Set flag to prevent immediate recounting
+        exitGateBlocked = true; 
         Serial.println("Vehicle Exited. Count: " + String(vehicleCount));
     } else if (digitalRead(IR_EXIT) == HIGH && exitGateBlocked) {
-        // Vehicle cleared the gate
+       
         exitGateBlocked = false;
     }
 
