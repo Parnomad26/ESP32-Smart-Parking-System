@@ -17,7 +17,7 @@
 #define RED2 22
 
 
-const char* ssid = "parshva2005-5G";
+const char* ssid = "parshva2005";
 const char* password = "Parshva26";
 
 WebServer server(80);
