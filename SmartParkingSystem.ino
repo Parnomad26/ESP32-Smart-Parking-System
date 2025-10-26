@@ -17,8 +17,8 @@
 #define RED2 22
 
 
-const char* ssid = "YourWiFiName";
-const char* password = "YourWiFiPassword";
+const char* ssid = "parshva2005-5G";
+const char* password = "Parshva26";
 
 WebServer server(80);
 
